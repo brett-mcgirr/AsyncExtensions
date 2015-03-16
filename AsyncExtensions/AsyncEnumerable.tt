@@ -1,0 +1,119 @@
+﻿<#@ template debug="true" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace AsyncExtensions
+{
+	public static class Enumerable
+	{
+<# 
+var type = typeof(System.Linq.Enumerable);
+var methods = type
+	.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)
+	.Where(method => method.IsDefined(typeof(System.Runtime.CompilerServices.ExtensionAttribute), false))
+	.OrderBy(method => method.Name)
+	.ToList();
+
+foreach(var method in methods)
+{
+	WriteReturnType(method);
+
+	Write(method.Name);
+
+	WriteGenericArguments(method);
+
+	WriteParameters(method);
+
+	WriteMethodBody(method);
+	Write("\r\n");
+	//WriteLine();  
+}
+
+#>
+	}
+}
+
+
+<#+
+
+private void WriteReturnType(System.Reflection.MethodInfo method)
+{
+	Write("\t\tpublic static async Task<"); 
+	WriteType(method.ReturnType);
+	Write("> ");
+}
+
+private void WriteType(Type type)
+{
+	Write(type.ToString().Split('`')[0]);
+
+	if(type.IsGenericType)
+	{
+		Write("<");
+		for(int i = 0; i < type.GetGenericArguments().Length; i++)
+		{
+			if(i > 0)
+				Write(",");
+
+			WriteType(type.GetGenericArguments()[i]);
+		}
+		Write(">");
+	}
+}
+
+private void WriteGenericArguments(System.Reflection.MethodInfo method)
+{
+	if(method.GetGenericArguments().Any())
+	{
+		Write("<");
+		Write(string.Join(", ", method.GetGenericArguments().Select(type => type.Name)));
+		Write(">");
+	}
+}
+
+private void WriteParameters(System.Reflection.MethodInfo method)
+{
+	Write("(this Task<");
+	for(int i = 0; i < method.GetParameters().Length; i++)
+	{
+		if(i > 0)
+			Write(", ");
+
+		var parameter = method.GetParameters()[i];
+		WriteType(parameter.ParameterType);
+		if(i == 0)
+			Write(">");
+
+		Write(" ");
+		Write(parameter.Name);
+
+	}
+	Write(")");
+}
+
+private void WriteMethodBody(System.Reflection.MethodInfo method)
+{
+	WriteLine("");
+	WriteLine("\t\t{");
+	Write("\t\t\treturn (await ");
+	Write(method.GetParameters()[0].Name);
+	Write(").");
+	Write(method.Name);
+	WriteGenericArguments(method);
+	Write("(");
+	for(int i = 1; i < method.GetParameters().Length; i++)
+	{
+		if(i > 1)
+			Write(", ");
+		Write(method.GetParameters()[i].Name);
+	}
+	WriteLine(");");
+
+	WriteLine("\t\t}");
+}
+#>
